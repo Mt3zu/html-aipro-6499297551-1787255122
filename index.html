@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مساعدي الذكي</title>
+<style>
+  :root{
+    --bg:#0f0f10;
+    --bg-side:#171718;
+    --bg-msg-user:#2f2f31;
+    --bg-msg-bot:#171718;
+    --border:#2a2a2c;
+    --text:#e9e9ea;
+    --text-dim:#9a9a9d;
+    --accent:#10a37f;
+    --accent-hover:#0d8c6d;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:'Segoe UI', Tahoma, Arial, sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    display:flex;
+    overflow:hidden;
+  }
+  #sidebar{
+    width:260px;
+    background:var(--bg-side);
+    border-left:1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+    padding:10px;
+    flex-shrink:0;
+    transition:margin-right .2s ease;
+  }
+  #sidebar.hidden{ margin-right:-260px; }
+  .new-chat-btn{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:12px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    color:var(--text);
+    background:transparent;
+    cursor:pointer;
+    font-size:14px;
+    transition:background .15s;
+  }
+  .new-chat-btn:hover{ background:#232324; }
+  #history{
+    margin-top:14px;
+    flex:1;
+    overflow-y:auto;
+  }
+  .history-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:10px 12px;
+    border-radius:8px;
+    font-size:13px;
+    color:var(--text-dim);
+    cursor:pointer;
+    white-space:nowrap;
+    overflow:hidden;
+    margin-bottom:2px;
+    gap:6px;
+  }
+  .history-item span.title{
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .history-item:hover, .history-item.active{
+    background:#232324;
+    color:var(--text);
+  }
+  .del-btn{
+    opacity:0;
+    color:var(--text-dim);
+    font-size:14px;
+    flex-shrink:0;
+  }
+  .history-item:hover .del-btn{ opacity:1; }
+  .del-btn:hover{ color:#e05252; }
+  .sidebar-footer{
+    border-top:1px solid var(--border);
+    padding-top:10px;
+    font-size:12px;
+    color:var(--text-dim);
+    text-align:center;
+  }
+
+  #main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    height:100%;
+    position:relative;
+  }
+  #topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:10px 16px;
+    border-bottom:1px solid var(--border);
+  }
+  #toggleSidebar{
+    background:none;
+    border:none;
+    color:var(--text);
+    font-size:20px;
+    cursor:pointer;
+    padding:6px 10px;
+    border-radius:6px;
+  }
+  #toggleSidebar:hover{ background:#232324; }
+  #topbar h1{
+    font-size:15px;
+    font-weight:600;
+    color:var(--text-dim);
+  }
+  #themeBtn{
+    background:none;
+    border:1px solid var(--border);
+    color:var(--text);
+    font-size:14px;
+    cursor:pointer;
+    padding:6px 12px;
+    border-radius:8px;
+  }
+  #themeBtn:hover{ background:#232324; }
+
+  #chatWindow{
+    flex:1;
+    overflow-y:auto;
+    padding:20px 0 10px;
+  }
+  .msg-row{
+    display:flex;
+    padding:18px 15%;
+    gap:14px;
+    animation:fadeIn .25s ease;
+  }
+  @media (max-width:900px){
+    .msg-row{ padding:16px 5%; }
+  }
+  @keyframes fadeIn{
+    from{opacity:0; transform:translateY(6px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+  .msg-row.user{ background:var(--bg-msg-user); }
+  .msg-row.bot{ background:var(--bg-msg-bot); }
+  .avatar{
+    width:30px; height:30px;
+    border-radius:6px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:15px;
+    font-weight:bold;
+  }
+  .avatar.user{ background:#5c5c60; }
+  .avatar.bot{ background:var(--accent); }
+  .msg-content{
+    flex:1;
+    line-height:1.8;
+    font-size:15px;
+    white-space:pre-wrap;
+    word-wrap:break-word;
+    padding-top:3px;
+  }
+  .msg-actions{
+    display:flex;
+    gap:10px;
+    margin-top:8px;
+    opacity:0;
+    transition:opacity .15s;
+  }
+  .msg-row:hover .msg-actions{ opacity:1; }
+  .msg-actions button{
+    background:none;
+    border:1px solid var(--border);
+    color:var(--text-dim);
+    font-size:11px;
+    padding:3px 9px;
+    border-radius:6px;
+    cursor:pointer;
+  }
+  .msg-actions button:hover{ background:#232324; color:var(--text); }
+
+  .typing{
+    display:inline-flex;
+    gap:4px;
+    padding-top:6px;
+  }
+  .typing span{
+    width:7px; height:7px;
+    background:var(--text-dim);
+    border-radius:50%;
+    animation:blink 1.2s infinite ease-in-out;
+  }
+  .typing span:nth-child(2){ animation-delay:.2s; }
+  .typing span:nth-child(3){ animation-delay:.4s; }
+  @keyframes blink{
+    0%,80%,100%{opacity:.25;}
+    40%{opacity:1;}
+  }
+
+  #welcome{
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    color:var(--text-dim);
+    gap:14px;
+    padding:0 20px;
+  }
+  #welcome h2{ color:var(--text); font-size:26px; }
+  .suggestions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-top:20px;
+    max-width:640px;
+    width:100%;
+  }
+  @media (max-width:600px){ .suggestions{ grid-template-columns:1fr; } }
+  .suggestion-card{
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px 14px;
+    font-size:13px;
+    cursor:pointer;
+    text-align:right;
+    transition:background .15s;
+  }
+  .suggestion-card:hover{ background:#232324; }
+
+  #inputArea{
+    padding:14px 15%;
+    border-top:1px solid var(--border);
+  }
+  @media (max-width:900px){ #inputArea{ padding:14px 4%; } }
+  .input-box{
+    display:flex;
+    align-items:flex-end;
+    gap:8px;
+    background:var(--bg-msg-user);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:10px 12px;
+  }
+  #userInput{
+    flex:1;
+    background:transparent;
+    border:none;
+    outline:none;
+    color:var(--text);
+    font-size:15px;
+    resize:none;
+    max-height:180px;
+    font-family:inherit;
+    line-height:1.5;
+  }
+  #sendBtn{
+    background:var(--accent);
+    border:none;
+    color:#fff;
+    width:34px; height:34px;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+    transition:background .15s;
+  }
+  #sendBtn:hover{ background:var(--accent-hover); }
+  #sendBtn:disabled{ background:#3a3a3c; cursor:not-allowed; }
+  .disclaimer{
+    text-align:center;
+    font-size:11px;
+    color:var(--text-dim);
+    margin-top:8px;
+  }
+
+  body.light{
+    --bg:#ffffff;
+    --bg-side:#f7f7f8;
+    --bg-msg-user:#f7f7f8;
+    --bg-msg-bot:#ffffff;
+    --border:#e5e5e6;
+    --text:#1a1a1a;
+    --text-dim:#6e6e73;
+  }
+
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-thumb{ background:#333335; border-radius:4px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <button class="new-chat-btn" onclick="newChat()">
+    <span>＋</span><span>محادثة جديدة</span>
+  </button>
+  <div id="history"></div>
+  <div class="sidebar-footer">مساعد محلي — بدون اتصال إنترنت</div>
+</div>
+
+<div id="main">
+  <div id="topbar">
+    <button id="toggleSidebar" onclick="toggleSidebar()">☰</button>
+    <h1>مساعدي الذكي</h1>
+    <button id="themeBtn" onclick="toggleTheme()">🌙 داكن</button>
+  </div>
+
+  <div id="chatWindow">
+    <div id="welcome">
+      <h2>👋 أهلاً بك</h2>
+      <p>اسألني أي شيء، أو جرّب أحد الاقتراحات:</p>
+      <div class="suggestions">
+        <div class="suggestion-card" onclick="quickSend('كم الساعة الآن؟')">🕐 كم الساعة الآن؟</div>
+        <div class="suggestion-card" onclick="quickSend('احسب 25 * 4 + 10')">🧮 احسب 25 * 4 + 10</div>
+        <div class="suggestion-card" onclick="quickSend('أخبرني نكتة')">😄 أخبرني نكتة</div>
+        <div class="suggestion-card" onclick="quickSend('اقترح علي اسم مشروع')">💡 اقترح علي اسم مشروع</div>
+        <div class="suggestion-card" onclick="quickSend('اعطني اقتباس ملهم')">✨ اعطني اقتباس ملهم</div>
+        <div class="suggestion-card" onclick="quickSend('حجر')">✊ العب معايا حجر ورقة مقص</div>
+        <div class="suggestion-card" onclick="quickSend('اضرب لي نرد')">🎲 اضرب لي نرد</div>
+        <div class="suggestion-card" onclick="quickSend('مساعدة')">❓ إيه اللي تقدر تعمله؟</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="inputArea">
+    <div class="input-box">
+      <textarea id="userInput" rows="1" placeholder="اكتب رسالتك هنا..." onkeydown="handleKey(event)" oninput="autoGrow(this)"></textarea>
+      <button id="sendBtn" onclick="sendMessage()">↑</button>
+    </div>
+    <div class="disclaimer">هذا شات بوت محلي بسيط يعمل بالكامل داخل المتصفح دون أي اتصال بالإنترنت أو API خارجي.</div>
+  </div>
+</div>
+
+<script>
+let chats = {};
+let currentChatId = null;
+let userName = null;
+let rpsScore = { user:0, bot:0 };
+
+function uid(){ return 'c' + Date.now() + Math.random().toString(36).slice(2,7); }
+
+function newChat(){
+  const id = uid();
+  chats[id] = { title: 'محادثة جديدة', messages: [] };
+  currentChatId = id;
+  renderHistory();
+  renderChatWindow();
+}
+
+function deleteChat(id, e){
+  e.stopPropagation();
+  delete chats[id];
+  if(currentChatId === id){
+    const remaining = Object.keys(chats);
+    currentChatId = remaining.length ? remaining[remaining.length-1] : null;
+    if(!currentChatId) newChat();
+  }
+  renderHistory();
+  renderChatWindow();
+}
+
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('hidden');
+}
+
+function toggleTheme(){
+  document.body.classList.toggle('light');
+  const btn = document.getElementById('themeBtn');
+  btn.textContent = document.body.classList.contains('light') ? '☀️ فاتح' : '🌙 داكن';
+}
+
+function autoGrow(el){
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 180) + 'px';
+}
+
+function handleKey(e){
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function quickSend(text){
+  document.getElementById('userInput').value = text;
+  sendMessage();
+}
+
+function renderHistory(){
+  const box = document.getElementById('history');
+  box.innerHTML = '';
+  Object.keys(chats).reverse().forEach(id=>{
+    const div = document.createElement('div');
+    div.className = 'history-item' + (id===currentChatId ? ' active':'');
+    div.innerHTML = `<span class="title">${chats[id].title}</span><span class="del-btn" onclick="deleteChat('${id}', event)">✕</span>`;
+    div.onclick = ()=>{ currentChatId = id; renderHistory(); renderChatWindow(); };
+    box.appendChild(div);
+  });
+}
+
+function renderChatWindow(){
+  const win = document.getElementById('chatWindow');
+  win.innerHTML = '';
+  const chat = chats[currentChatId];
+  if(!chat || chat.messages.length === 0){
+    win.innerHTML = `
+      <div id="welcome">
+        <h2>👋 أهلاً بك</h2>
+        <p>اسألني أي شيء، أو جرّب أحد الاقتراحات:</p>
+        <div class="suggestions">
+          <div class="suggestion-card" onclick="quickSend('كم الساعة الآن؟')">🕐 كم الساعة الآن؟</div>
+          <div class="suggestion-card" onclick="quickSend('احسب 25 * 4 + 10')">🧮 احسب 25 * 4 + 10</div>
+          <div class="suggestion-card" onclick="quickSend('أخبرني نكتة')">😄 أخبرني نكتة</div>
+          <div class="suggestion-card" onclick="quickSend('اقترح علي اسم مشروع')">💡 اقترح علي اسم مشروع</div>
+          <div class="suggestion-card" onclick="quickSend('اعطني اقتباس ملهم')">✨ اعطني اقتباس ملهم</div>
+          <div class="suggestion-card" onclick="quickSend('حجر')">✊ العب معايا حجر ورقة مقص</div>
+          <div class="suggestion-card" onclick="quickSend('اضرب لي نرد')">🎲 اضرب لي نرد</div>
+          <div class="suggestion-card" onclick="quickSend('مساعدة')">❓ إيه اللي تقدر تعمله؟</div>
+        </div>
+      </div>`;
+    return;
+  }
+  chat.messages.forEach(m=> appendMessageDOM(m.role, m.text, false));
+  win.scrollTop = win.scrollHeight;
+}
+
+function appendMessageDOM(role, text, scroll=true){
+  const win = document.getElementById('chatWindow');
+  const welcome = document.getElementById('welcome');
+  if(welcome) welcome.remove();
+
+  const row = document.createElement('div');
+  row.className = 'msg-row ' + role;
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar ' + role;
+  avatar.textContent = role === 'user' ? 'أنت' : 'AI';
+
+  const contentWrap = document.createElement('div');
+  contentWrap.style.flex = '1';
+
+  const content = document.createElement('div');
+  content.className = 'msg-content';
+  content.textContent = text;
+  contentWrap.appendChild(content);
+
+  if(role === 'bot'){
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
+    actions.innerHTML = `<button onclick="copyText(this)">📋 نسخ</button>`;
+    contentWrap.appendChild(actions);
+  }
+
+  row.appendChild(avatar);
+  row.appendChild(contentWrap);
+  win.appendChild(row);
+
+  if(scroll) win.scrollTop = win.scrollHeight;
+  return content;
+}
+
+function copyText(btn){
+  const text = btn.closest('.msg-actions').previousElementSibling.textContent;
+  navigator.clipboard.writeText(text).then(()=>{
+    btn.textContent = '✓ تم النسخ';
+    setTimeout(()=> btn.textContent = '📋 نسخ', 1500);
+  });
+}
+
+function sendMessage(){
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  if(!text) return;
+
+  if(!currentChatId) newChat();
+  const chat = chats[currentChatId];
+
+  chat.messages.push({role:'user', text});
+  if(chat.messages.length === 1){
+    chat.title = text.slice(0,28) + (text.length>28?'...':'');
+    renderHistory();
+  }
+
+  appendMessageDOM('user', text);
+  input.value = '';
+  input.style.height = 'auto';
+
+  document.getElementById('sendBtn').disabled = true;
+
+  const win = document.getElementById('chatWindow');
+  const row = document.createElement('div');
+  row.className = 'msg-row bot';
+  row.innerHTML = `<div class="avatar bot">AI</div>
+    <div class="msg-content"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  win.appendChild(row);
+  win.scrollTop = win.scrollHeight;
+
+  const delay = 450 + Math.random()*650;
+  setTimeout(()=>{
+    row.remove();
+    const reply = generateReply(text);
+    chat.messages.push({role:'bot', text: reply});
+    typeOut(reply);
+    document.getElementById('sendBtn').disabled = false;
+  }, delay);
+}
+
+function typeOut(fullText){
+  const content = appendMessageDOM('bot', '');
+  let i = 0;
+  const win = document.getElementById('chatWindow');
+  const speed = fullText.length > 200 ? 5 : 16;
+  const interval = setInterval(()=>{
+    content.textContent += fullText[i];
+    i++;
+    win.scrollTop = win.scrollHeight;
+    if(i >= fullText.length) clearInterval(interval);
+  }, speed);
+}
+
+const jokes = [
+  'ليه الكمبيوتر راح للدكتور؟ عشان كان عنده فيروس! 😄',
+  'واحد سأل صديقه: ليه بتاخد لابتوبك للنوم؟ قال: عشان مش عايزه يحلم من غيري 💻',
+  'ليه المبرمج لبس نظارتين؟ عشان شاف C شارب! 🤓',
+  'الذكاء الاصطناعي ما بيتعب... بس بيحتاج تحديثات كتير 😅',
+  'ليه الروبوت زعل من صاحبه؟ عشان حسّه بمشاعر مصطنعة 🤖',
+  'واحد قال لصاحبه: أنا بستخدم الذكاء الاصطناعي كل يوم. قاله: طيب ليه لسه بتنسى المواعيد؟ 😂',
+  'إيه الفرق بين البرمجة والحياة؟ في البرمجة لما تغلط بيديك Error واضح 🙃'
+];
+
+const aboutMe = [
+  'أنا مساعد ذكاء اصطناعي محلي بسيط، مبني بالكامل بلغة JavaScript ويعمل داخل متصفحك مباشرة دون أي اتصال بالإنترنت أو أي API خارجي.',
+  'أنا شات بوت تجريبي تم إنشاؤه ليحاكي واجهة تشبه ChatGPT، لكن ردودي مبنية على قواعد بسيطة وليست نموذج ذكاء اصطناعي حقيقي ضخم.'
+];
+
+const quotes = [
+  '"النجاح هو الانتقال من فشل إلى فشل دون أن تفقد حماسك." — ونستون تشرشل',
+  '"الطريق إلى الألف ميل يبدأ بخطوة واحدة." — لاو تزو',
+  '"لا تنتظر الفرصة، اصنعها." — جورج برنارد شو',
+  '"العقل الذي ينفتح على فكرة جديدة لا يعود أبدًا إلى حجمه الأصلي." — ألبرت أينشتاين',
+  '"ابدأ من حيث أنت، استخدم ما لديك، افعل ما تستطيع." — آرثر آش',
+  '"الفشل ليس نهاية الطريق، بل بداية فهم أعمق." — مجهول'
+];
+
+const projectNames = [
+  'نوفا AI', 'سبارك هب', 'لوجيك فلو', 'برايت مايند', 'كوانتم ليب',
+  'فيوجن لابز', 'إيكو تك', 'زينيث ستوديو', 'بايلوت وان', 'نكست جِن'
+];
+
+function safeCalc(expr){
+  if(!/^[0-9+\-*/().\s%^]+$/.test(expr)) return null;
+  try{
+    const safeExpr = expr.replace(/\^/g, '**');
+    const result = Function('"use strict"; return (' + safeExpr + ')')();
+    if(typeof result === 'number' && isFinite(result)) return result;
+    return null;
+  }catch(e){ return null; }
+}
+
+const rpsChoices = ['حجر', 'ورقة', 'مقص'];
+function playRPS(userChoice){
+  const botChoice = rpsChoices[Math.floor(Math.random()*3)];
+  let result;
+  if(userChoice === botChoice){
+    result = 'تعادل! 🤝';
+  }else if(
+    (userChoice==='حجر' && botChoice==='مقص') ||
+    (userChoice==='ورقة' && botChoice==='حجر') ||
+    (userChoice==='مقص' && botChoice==='ورقة')
+  ){
+    result = 'فزت! 🎉';
+    rpsScore.user++;
+  }else{
+    result = 'خسرت! 😅';
+    rpsScore.bot++;
+  }
+  return `أنا اخترت: ${botChoice}\nأنت اخترت: ${userChoice}\n${result}\n\nالنتيجة الإجمالية — أنت: ${rpsScore.user} | أنا: ${rpsScore.bot}`;
+}
+
+function generateReply(rawText){
+  const text = rawText.trim();
+  const lower = text.toLowerCase();
+
+  const rpsMatch = text.match(/^(حجر|ورقة|مقص)$/);
+  if(rpsMatch){
+    return playRPS(rpsMatch[0]);
+  }
+  if(lower.includes('حجر ورقة مقص')){
+    return 'يلا نلعب! 🎮 اكتب "حجر" أو "ورقة" أو "مقص" فقط وأنا هختار في نفس الوقت.';
+  }
+
+  if(lower.includes('نرد') || lower.includes('زهر') || lower.includes('dice')){
+    const roll = Math.floor(Math.random()*6)+1;
+    return `🎲 رميت النرد... النتيجة: ${roll}`;
+  }
+
+  if(lower.includes('اقتباس') || lower.includes('مقولة') || lower.includes('حكمة') || lower.includes('quote')){
+    return quotes[Math.floor(Math.random()*quotes.length)];
+  }
+
+  if(lower.includes('اسم مشروع') || lower.includes('اسم شركة') || lower.includes('اسم لل')){
+    const picks = [...projectNames].sort(()=>0.5-Math.random()).slice(0,3);
+    return `جرّب أحد هذه الأسماء:\n• ${picks.join('\n• ')}`;
+  }
+
+  const currencyMatch = text.match(/(\d+(\.\d+)?)\s*(دولار|جنيه|يورو|ريال)/);
+  if(currencyMatch){
+    return 'للأسف لا أملك اتصالًا بالإنترنت لجلب سعر الصرف الحقيقي اللحظي 🌐، لكن يمكنك التحقق من السعر عبر أي تطبيق تحويل عملات محدث.';
+  }
+
+  if(/^(سلام|السلام عليكم|هاي|هلا|مرحبا|hello|hi|hey)\b/.test(lower)){
+    const greetings = [
+      'أهلاً وسهلاً بك! 😊 كيف أقدر أساعدك اليوم؟',
+      'هلا بيك! 👋 اسألني أي حاجة.',
+      'يا مرحب! جاهز أساعدك في أي وقت 🌟'
+    ];
+    return greetings[Math.floor(Math.random()*greetings.length)];
+  }
+
+  if(lower.includes('من انت') || lower.includes('من أنت') || lower.includes('what are you')){
+    return aboutMe[Math.floor(Math.random()*aboutMe.length)];
+  }
+
+  if(lower.includes('الساعة') || lower.includes('كم الوقت') || lower.includes('time now')){
+    const now = new Date();
+    return '⏰ الساعة الآن (حسب جهازك): ' + now.toLocaleTimeString('ar-EG');
+  }
+
+  if(lower.includes('التاريخ') || lower.includes('اليوم كام') || lower.includes('اي يوم')){
+    const now = new Date();
+    return '📅 تاريخ اليوم: ' + now.toLocaleDateString('ar-EG', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  }
+
+  if(lower.includes('نكت') || lower.includes('joke') || lower.includes('ضحك')){
+    return jokes[Math.floor(Math.random()*jokes.length)];
+  }
+
+  if(lower.includes('شكرا') || lower.includes('شكراً') || lower.includes('thank')){
+    const thanks = ['العفو! 🌟 يسعدني دايمًا مساعدتك.', 'تحت أمرك في أي وقت! 😊', 'ولا يهمك! 🙌'];
+    return thanks[Math.floor(Math.random()*thanks.length)];
+  }
+
+  if(/احسب|calculate|كم ناتج|=\?|[0-9]\s*[+\-*/^]\s*[0-9]/.test(text)){
+    const match = text.match(/[0-9+\-*/().\s%^]{3,}/);
+    if(match){
+      const result = safeCalc(match[0]);
+      if(result !== null){
+        return `🧮 الناتج هو: ${result}`;
+      }
+    }
+    return 'اكتب لي تعبيرًا رياضيًا واضحًا مثل: 25 * 4 + 10 وسأحسبه لك فورًا.';
+  }
+
+  const nameMatch = text.match(/اسمي\s+([\u0621-\u064Aa-zA-Z]+)/);
+  if(nameMatch){
+    userName = nameMatch[1];
+    return `تشرفت بمعرفتك يا ${userName}! 😊 كيف أقدر أساعدك؟`;
+  }
+  if(lower.includes('اسمي ايه') || lower.includes('اسمي إيه')){
+    return userName ? `اسمك ${userName} على ما أذكر 😄` : 'لسه ما قلتليش اسمك! قولي "اسمي فلان" وهفتكره طول المحادثة دي.';
+  }
+
+  if(lower.includes('كيف حالك') || lower.includes('عامل ايه') || lower.includes('عامل إيه') || lower.includes('how are you')){
+    return 'أنا بخير، شكرًا لسؤالك! أنا هنا وجاهز لمساعدتك في أي وقت. وأنت كيف حالك؟';
+  }
+
+  if(lower.includes('باي') || lower.includes('مع السلامة') || lower.includes('bye')){
+    return 'إلى اللقاء! 👋 لا تتردد بالعودة إذا احتجت أي مساعدة.';
+  }
+
+  if(lower.includes('مساعدة') || lower.includes('help') || lower.includes('ماذا تستطيع') || lower.includes('ايه اللي تقدر تعمله')){
+    return `أستطيع مساعدتك في:
+🕐 معرفة الوقت والتاريخ
+🧮 حساب العمليات الرياضية
+😄 سرد النكات
+✨ اقتباسات ملهمة
+💡 اقتراح أسماء مشاريع
+🎲 رمي نرد أو لعب حجر/ورقة/مقص
+💬 دردشة عامة بسيطة
+
+جرّب أي حاجة من دول! 🙂`;
+  }
+
+  const fallback = [
+    `فهمت أنك تتحدث عن: "${text}"، لكنني شات بوت محلي بسيط وقدراتي محدودة على الردود المعقدة. هل يمكنك إعادة صياغة سؤالك بشكل أبسط؟`,
+    `هذا سؤال مثير للاهتمام حول "${text}"، لكن كوني نموذجًا بسيطًا يعمل بدون اتصال، لا أملك معلومات كافية للإجابة بدقة. جرّب سؤالًا آخر!`,
+    `لا أملك حاليًا معلومات كافية عن "${text}" لأنني أعمل محليًا بدون اتصال بالإنترنت أو قاعدة بيانات ضخمة. اكتب "مساعدة" لتعرف بماذا أقدر أساعدك.`,
+    `همم 🤔 مش متأكد إني فاهم "${text}" صح. جرّب تسألني بطريقة تانية أو اكتب "مساعدة" عشان تشوف حاجات أقدر أساعدك فيها.`
+  ];
+  return fallback[Math.floor(Math.random()*fallback.length)];
+}
+
+newChat();
+</script>
+</body>
+</html>
